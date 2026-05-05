@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8010';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://adaptivefinancialliteracy.onrender.com';
 
 async function request(path, options = {}) {
   const { userId, headers, ...fetchOptions } = options;
