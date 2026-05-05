@@ -1,0 +1,239 @@
+{
+  "supabase-current-code-check": {
+    "id": "supabase-current-code-check",
+    "name": "You",
+    "money": 10500,
+    "debt": 0,
+    "xp": 150,
+    "level": 1,
+    "scenarios_completed": 1,
+    "weak_topics": {},
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 1,
+        "total": 1
+      },
+      "medium": {
+        "correct": 0,
+        "total": 0
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "medium",
+    "correct": 1,
+    "wrong": 0,
+    "risk_score": 0,
+    "topics": {
+      "Emergency Fund": -1
+    },
+    "seen_scenarios": []
+  },
+  "481d530b-c842-4db5-b84e-670bb4f32217": {
+    "id": "481d530b-c842-4db5-b84e-670bb4f32217",
+    "name": "You",
+    "money": 11000,
+    "debt": 0,
+    "xp": 300,
+    "level": 1,
+    "scenarios_completed": 2,
+    "weak_topics": {},
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 2,
+        "total": 2
+      },
+      "medium": {
+        "correct": 0,
+        "total": 0
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "medium",
+    "correct": 2,
+    "wrong": 0,
+    "risk_score": 0,
+    "topics": {
+      "Emergency Fund": -1,
+      "Budgeting": -1
+    },
+    "seen_scenarios": []
+  },
+  "61b12d04-37f8-4f88-aed2-d633c713e209": {
+    "id": "61b12d04-37f8-4f88-aed2-d633c713e209",
+    "name": "You",
+    "money": 10500,
+    "debt": 0,
+    "xp": 150,
+    "level": 1,
+    "scenarios_completed": 1,
+    "weak_topics": {},
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 1,
+        "total": 1
+      },
+      "medium": {
+        "correct": 0,
+        "total": 0
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "medium",
+    "correct": 1,
+    "wrong": 0,
+    "risk_score": 0,
+    "topics": {
+      "Retirement": -1
+    },
+    "seen_scenarios": [
+      9,
+      4
+    ]
+  },
+  "1a181565-a62d-4ac6-a737-76882b4be560": {
+    "id": "1a181565-a62d-4ac6-a737-76882b4be560",
+    "name": "You",
+    "money": 7500,
+    "debt": 2500,
+    "xp": 0,
+    "level": 1,
+    "scenarios_completed": 1,
+    "weak_topics": {
+      "Debt": 1
+    },
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 0,
+        "total": 0
+      },
+      "medium": {
+        "correct": 0,
+        "total": 1
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "easy",
+    "correct": 0,
+    "wrong": 1,
+    "risk_score": 1,
+    "topics": {
+      "Debt": 2
+    },
+    "seen_scenarios": []
+  },
+  "9a8628ff-84b8-4b80-a0ce-eaeadf380606": {
+    "id": "9a8628ff-84b8-4b80-a0ce-eaeadf380606",
+    "name": "You",
+    "money": 10000,
+    "debt": 0,
+    "xp": 0,
+    "level": 1,
+    "scenarios_completed": 0,
+    "weak_topics": {},
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 0,
+        "total": 0
+      },
+      "medium": {
+        "correct": 0,
+        "total": 0
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "easy",
+    "correct": 0,
+    "wrong": 0,
+    "risk_score": 0,
+    "topics": {},
+    "seen_scenarios": []
+  },
+  "b9d101ca-6fc3-4829-be7f-b77f3a4b75fd": {
+    "id": "b9d101ca-6fc3-4829-be7f-b77f3a4b75fd",
+    "name": "You",
+    "money": 9200,
+    "debt": 1800,
+    "xp": 260,
+    "level": 1,
+    "scenarios_completed": 3,
+    "weak_topics": {
+      "Investing": 1
+    },
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 1,
+        "total": 1
+      },
+      "medium": {
+        "correct": 1,
+        "total": 2
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "medium",
+    "correct": 2,
+    "wrong": 1,
+    "risk_score": 0,
+    "topics": {
+      "Budgeting": -1,
+      "Investing": 1
+    },
+    "seen_scenarios": [
+      2
+    ]
+  },
+  "70b0e2b3-b744-4900-bea4-1ac1952487a3": {
+    "id": "70b0e2b3-b744-4900-bea4-1ac1952487a3",
+    "name": "You",
+    "money": 11500,
+    "debt": 0,
+    "xp": 450,
+    "level": 1,
+    "scenarios_completed": 3,
+    "weak_topics": {},
+    "accuracy_per_difficulty": {
+      "easy": {
+        "correct": 1,
+        "total": 1
+      },
+      "medium": {
+        "correct": 2,
+        "total": 2
+      },
+      "hard": {
+        "correct": 0,
+        "total": 0
+      }
+    },
+    "last_difficulty": "medium",
+    "correct": 3,
+    "wrong": 0,
+    "risk_score": 0,
+    "topics": {
+      "Retirement": -1,
+      "Debt": -1,
+      "Saving": -1
+    },
+    "seen_scenarios": [
+      9
+    ]
+  }
+}
