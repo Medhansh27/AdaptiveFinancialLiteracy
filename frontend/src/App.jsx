@@ -8,8 +8,7 @@ import ScenarioScreen from './screens/ScenarioScreen';
 import ResultScreen from './screens/ResultScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import Landing from './screens/Landing';
-
-const STATIC_SCENARIO_LIMIT = 12;
+import OnboardingScreen from './screens/OnboardingScreen';
 
 export default function App() {
   const [screen, setScreen] = useState('dashboard');
@@ -21,6 +20,10 @@ export default function App() {
   const [queuedScenario, setQueuedScenario] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [financialProfile, setFinancialProfile] = useState(null);
+  const [behaviorTrends, setBehaviorTrends] = useState([]);
+  const [onboardingStage, setOnboardingStage] = useState('form');
 
   const resetSimulationState = () => {
     setProfile(null);
@@ -60,10 +63,54 @@ export default function App() {
     setLoading(true);
     setError('');
     api.user(authUser.id)
-      .then((data) => setProfile(data))
-      .catch(() => setError('Could not load your saved profile. Please check the backend server.'))
+      .then((userData) => {
+        setProfile(userData);
+        return Promise.allSettled([api.profileMe(authUser.id), api.profileInsights(authUser.id)]);
+      })
+      .then((results) => {
+        const profileResult = results?.[0];
+        const insightResult = results?.[1];
+
+        if (profileResult?.status === 'fulfilled') {
+          setNeedsOnboarding(!profileResult.value?.exists);
+          setFinancialProfile(profileResult.value?.profile || null);
+        } else {
+          setNeedsOnboarding(false);
+          setFinancialProfile(null);
+        }
+
+        if (insightResult?.status === 'fulfilled') {
+          setBehaviorTrends(insightResult.value?.behavior_trends || []);
+        } else {
+          setBehaviorTrends([]);
+        }
+      })
+      .catch(() => {
+        setError('Could not load your saved profile. Please check the backend server.');
+        setProfile({ id: authUser.id, name: 'You', money: 10000, xp: 0, level: 1, scenarios_completed: 0 });
+      })
       .finally(() => setLoading(false));
   }, [authUser?.id]);
+
+  const submitOnboarding = async (payload) => {
+    if (!authUser?.id) return;
+    setLoading(true);
+    setOnboardingStage('analyzing');
+    setError('');
+    try {
+      const data = await api.profileSetup(authUser.id, payload);
+      setFinancialProfile(data.profile || null);
+      setNeedsOnboarding(false);
+      setScreen('dashboard');
+      const insightData = await api.profileInsights(authUser.id);
+      setBehaviorTrends(insightData?.behavior_trends || []);
+    } catch {
+      setError('Could not complete onboarding setup. Please retry.');
+      setOnboardingStage('form');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const start = async () => {
     if (!authUser?.id) return;
@@ -140,22 +187,17 @@ export default function App() {
         return;
       }
 
-      const shouldUseAI = (profile?.scenarios_completed ?? 0) >= STATIC_SCENARIO_LIMIT;
+      const shouldUseAI = (profile?.scenarios_completed ?? 0) >= 12;
       if (shouldUseAI) {
-        const aiGenerated = await api.aiScenario(authUser.id, {
-          type: result?.profile?.type ?? 'Unstable Decision Maker',
-          weak_topics: result?.profile?.weak_topics ?? [],
-          money: profile?.money
+        const aiGenerated = await api.generateScenario(authUser.id, {
+          financial_profile: financialProfile || {},
+          weak_areas: financialProfile?.weak_areas || result?.profile?.weak_topics || [],
+          strengths: financialProfile?.strengths || [],
+          previous_answers: [],
+          xp_level: profile?.level || 1,
+          recent_mistakes: behaviorTrends.slice(0, 5).map((item) => item.behavior_type)
         });
-        if (aiGenerated.title === scenario?.title) {
-          nextScenario = await api.aiScenario(authUser.id, {
-            type: result?.profile?.type ?? 'Unstable Decision Maker',
-            weak_topics: result?.profile?.weak_topics ?? [],
-            money: profile?.money
-          });
-        } else {
-          nextScenario = aiGenerated;
-        }
+        nextScenario = aiGenerated;
       } else {
         nextScenario = queuedScenario;
         if (!nextScenario) {
@@ -164,8 +206,21 @@ export default function App() {
       }
       setScenario(nextScenario);
       setQueuedScenario(null);
+      try {
+        const insightData = await api.profileInsights(authUser.id);
+        setBehaviorTrends(insightData?.behavior_trends || []);
+      } catch {
+        // keep simulation flow working even if insights fetch fails
+      }
     } catch {
       setError('Could not load next scenario. Please try again.');
+      try {
+        nextScenario = queuedScenario || await api.nextScenario(authUser.id);
+        setScenario(nextScenario);
+        setQueuedScenario(null);
+      } catch {
+        // no-op; original error stays visible
+      }
     } finally {
       setLoading(false);
     }
@@ -181,6 +236,16 @@ export default function App() {
     return <Landing />;
   }
   if (!profile) return <div className="flex justify-center items-center h-screen bg-slate-950"><div className="loader"></div></div>;
+  if (needsOnboarding) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-fuchsia-900 p-6 text-white">
+        <div className="mx-auto max-w-3xl">
+          {error && <p className="mb-4 rounded-lg bg-rose-500/20 px-4 py-2 text-rose-200">{error}</p>}
+          <OnboardingScreen onSubmit={submitOnboarding} loading={loading} stage={onboardingStage} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-fuchsia-900 p-6 text-white">
@@ -199,7 +264,15 @@ export default function App() {
         {error && <p className="mb-4 rounded-lg bg-rose-500/20 px-4 py-2 text-rose-200">{error}</p>}
         <AnimatePresence mode="wait">
           <motion.div key={screen} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-            {screen === 'dashboard' && <Dashboard profile={profile} onStart={start} loading={loading} />}
+            {screen === 'dashboard' && (
+              <Dashboard
+                profile={profile}
+                onStart={start}
+                loading={loading}
+                financialProfile={financialProfile}
+                behaviorTrends={behaviorTrends}
+              />
+            )}
             {screen === 'scenario' && <ScenarioScreen scenario={scenario} onSubmit={submit} loading={loading} />}
             {screen === 'result' && result && <ResultScreen result={result} onNext={next} loading={loading} />}
             {screen === 'leaderboard' && <LeaderboardScreen currentUserId={profile.id} currentUserName={profile.name} userXP={profile.xp} />}

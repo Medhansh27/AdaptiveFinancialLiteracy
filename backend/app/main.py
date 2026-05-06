@@ -3,6 +3,7 @@ import logging
 import os
 import random
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ import openai
 from pydantic import BaseModel, Field
 
 from .scenarios import SCENARIOS
+from .services.personality_analyzer import analyze_personality as personality_analyzer
 try:
     from jose import jwt
 except Exception:
@@ -116,6 +118,28 @@ class AIScenarioBody(BaseModel):
     type: str = 'Unstable Decision Maker'
     weak_topics: list[str] = Field(default_factory=list)
     money: int | None = None
+
+
+class ProfileSetupBody(BaseModel):
+    age: int
+    occupation: str
+    income_range: str
+    savings_habit: str
+    debt_level: str
+    investment_knowledge: str
+    risk_tolerance: str
+    emergency_fund: str
+    financial_confidence: str
+    spending_behavior: str
+
+
+class GenerateScenarioBody(BaseModel):
+    financial_profile: dict = Field(default_factory=dict)
+    weak_areas: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    previous_answers: list[dict] = Field(default_factory=list)
+    xp_level: int = 1
+    recent_mistakes: list[str] = Field(default_factory=list)
 
 def default_user_state(user_id: str):
     return {
@@ -321,6 +345,33 @@ def save_user_state(state: dict):
         }
 
 
+def load_financial_profile(user_id: str):
+    if not supabase:
+        return None
+    try:
+        result = supabase.table('financial_profiles').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(1).execute()
+        rows = getattr(result, 'data', None) or []
+        return rows[0] if rows else None
+    except Exception:
+        logger.exception('Error loading financial profile')
+        return None
+
+
+def save_behavior_tracking(user_id: str, category: str, behavior_type: str, severity: int):
+    if not supabase:
+        return
+    try:
+        supabase.table('behavior_tracking').insert({
+            'user_id': user_id,
+            'category': category,
+            'behavior_type': behavior_type,
+            'severity': severity,
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }).execute()
+    except Exception:
+        logger.exception('Error saving behavior tracking')
+
+
 @app.get('/user/profile')
 def profile():
     data = user.copy()
@@ -357,6 +408,108 @@ def get_user(user_id: str, verified_user_id: str = Depends(verify_user)):
     if user_id != verified_user_id:
         raise HTTPException(status_code=403, detail='Cannot access another user')
     return user_response(user_id)
+
+
+@app.get('/profile/me')
+def get_profile_me(user_id: str = Depends(verify_user)):
+    profile = load_financial_profile(user_id)
+    if not profile:
+        return {'exists': False}
+    return {'exists': True, 'profile': profile}
+
+
+@app.post('/profile/setup')
+def setup_profile(body: ProfileSetupBody, user_id: str = Depends(verify_user)):
+    answers = body.model_dump()
+    analysis = personality_analyzer(client, answers)
+    payload = {
+        'user_id': user_id,
+        **answers,
+        'personality_type': analysis['personality_type'],
+        'weak_areas': analysis['weak_areas'],
+        'strengths': analysis['strengths'],
+        'risk_score': analysis['risk_score'],
+        'discipline_score': analysis['discipline_score'],
+        'panic_score': analysis['panic_score']
+    }
+    if not supabase:
+        return {'saved': False, 'profile': payload, 'error': 'Supabase client unavailable'}
+    try:
+        result = supabase.table('financial_profiles').insert(payload).execute()
+        if getattr(result, 'error', None):
+            return {'saved': False, 'profile': payload, 'error': str(result.error)}
+        return {'saved': True, 'profile': payload}
+    except Exception as exc:
+        logger.exception('Profile setup failed')
+        return {'saved': False, 'profile': payload, 'error': str(exc)}
+
+
+@app.post('/generate-scenario')
+def generate_personalized_scenario(body: GenerateScenarioBody, user_id: str = Depends(verify_user)):
+    next_id = max((s['id'] for s in SCENARIOS), default=0) + 1
+    weak_focus = body.weak_areas[0] if body.weak_areas else 'Emergency Planning'
+    fallback = {
+        'id': next_id,
+        'title': f'{weak_focus} Decision Window',
+        'situation': 'A realistic financial pressure event requires immediate planning and trade-off decisions.',
+        'topic': weak_focus,
+        'difficulty': 'hard' if body.xp_level >= 5 else ('medium' if body.xp_level >= 3 else 'easy'),
+        'options': [
+            'Build a practical action plan with budget cuts and timeline',
+            'Delay action and hope the issue resolves itself',
+            'Use expensive credit without repayment planning',
+            'Take advice from unverified social media sources'
+        ],
+        'correct_option': 0,
+        'effects': {'correct': 700, 'wrong': -1900},
+        'explanation': 'Structured decisions reduce downside risk and improve financial resilience.',
+        'consequence': {
+            'correct': 'You reduce short-term pressure and protect long-term stability.',
+            'wrong': 'The issue compounds into avoidable debt and stress.'
+        }
+    }
+
+    if not client:
+        SCENARIOS.append(fallback)
+        return serialize_scenario(fallback)
+
+    prompt = f"""
+Generate one realistic, personalized financial simulation scenario as strict JSON.
+User financial profile: {json.dumps(body.financial_profile, ensure_ascii=False)}
+Weak areas: {body.weak_areas}
+Strengths: {body.strengths}
+Previous answers: {body.previous_answers[-5:]}
+XP level: {body.xp_level}
+Recent mistakes: {body.recent_mistakes[-5:]}
+Must avoid repetitive quiz wording.
+Return JSON only with keys:
+title, scenario, options (4), correct_option (0-3), explanation, difficulty, category
+"""
+    try:
+        response = client.chat.completions.create(
+            model='gpt-4o-mini',
+            messages=[{'role': 'user', 'content': prompt}],
+            temperature=0.7
+        )
+        parsed = json.loads((response.choices[0].message.content or '').strip())
+        generated = {
+            'id': next_id,
+            'title': parsed.get('title') or fallback['title'],
+            'situation': parsed.get('scenario') or fallback['situation'],
+            'topic': parsed.get('category') or fallback['topic'],
+            'difficulty': parsed.get('difficulty') if parsed.get('difficulty') in {'easy', 'medium', 'hard'} else fallback['difficulty'],
+            'options': parsed.get('options') if isinstance(parsed.get('options'), list) and len(parsed.get('options')) == 4 else fallback['options'],
+            'correct_option': parsed.get('correct_option') if isinstance(parsed.get('correct_option'), int) and 0 <= parsed.get('correct_option') <= 3 else 0,
+            'effects': fallback['effects'],
+            'explanation': parsed.get('explanation') or fallback['explanation'],
+            'consequence': fallback['consequence']
+        }
+        SCENARIOS.append(generated)
+        return serialize_scenario(generated)
+    except Exception:
+        logger.exception('Personalized scenario generation failed')
+        SCENARIOS.append(fallback)
+        return serialize_scenario(fallback)
 
 @app.get('/scenario/next')
 @app.get('/scenerio/next')
@@ -422,6 +575,13 @@ def submit(body: SubmitBody, user_id: str = Depends(verify_user)):
 
     if ('loan' in scenario['title'].lower() or 'credit' in scenario['title'].lower()) and not correct:
         state['risk_score'] += 1
+        save_behavior_tracking(actual_user_id, scenario['topic'], 'debt_dependency', 3)
+    if not correct and 'emergency' in scenario['topic'].lower():
+        save_behavior_tracking(actual_user_id, scenario['topic'], 'poor_emergency_planning', 2)
+    if not correct and 'invest' in scenario['topic'].lower():
+        save_behavior_tracking(actual_user_id, scenario['topic'], 'risky_behavior', 2)
+    if not correct and ('saving' in scenario['topic'].lower() or 'budget' in scenario['topic'].lower()):
+        save_behavior_tracking(actual_user_id, scenario['topic'], 'impulsive_spending', 2)
 
     if state['risk_score'] > 3:
         personality = 'High Risk Taker'
@@ -482,21 +642,30 @@ def submit(body: SubmitBody, user_id: str = Depends(verify_user)):
             'type': personality,
             'weak_topics': ranked_topics[:2]
         },
+        'behavior_signal': 'improving' if correct else 'needs_attention',
         'consequence': consequence,
         'explanation': scenario['explanation']
     }
 
 @app.post('/ai/insight')
 def ai_insight(body: InsightBody, user_id: str = Depends(verify_user)):
-    fallback = f"Your decision on {body.scenario_title} {'was strong' if body.is_correct else 'needs improvement'}. {body.explanation} Focus on planning and disciplined budgeting next."
+    fp = load_financial_profile(user_id) or {}
+    weak_areas = fp.get('weak_areas') or []
+    personality_type = fp.get('personality_type') or 'Adaptive Learner'
+    fallback = (
+        f"You made a {'strong' if body.is_correct else 'risky'} decision in {body.scenario_title}. "
+        f"As a {personality_type}, your current weak area focus is {', '.join(weak_areas[:2]) or 'cash-flow discipline'}. "
+        f"{body.explanation} Next step: create one concrete rule you can apply this week."
+    )
     if not client:
         return {'insight': fallback}
     try:
         prompt = (
-            f"You are a financial advisor. Provide concise, actionable coaching in 3-4 sentences. "
+            f"You are an elite financial coach. Provide personalized coaching in 3-4 sentences. "
             f"Scenario: {body.scenario_title}. Topic: {body.topic}. Selected option: {body.selected_option}. "
             f"Correct: {body.is_correct}. Money impact: {body.money_change}. Explanation: {body.explanation}. "
-            "Include one specific improvement suggestion and one positive reinforcement sentence."
+            f"Personality type: {personality_type}. Weak areas: {weak_areas}. "
+            "Reference behavior patterns and trade-offs (short-term vs long-term), and end with one practical weekly action."
         )
         response = client.ChatCompletion.create(
             model='gpt-4o-mini',
@@ -515,6 +684,22 @@ def ai_insight(body: InsightBody, user_id: str = Depends(verify_user)):
     except Exception:
         logger.exception('Error generating AI insight')
         return {'insight': fallback}
+
+
+@app.get('/profile/insights')
+def profile_insights(user_id: str = Depends(verify_user)):
+    fp = load_financial_profile(user_id)
+    trends = []
+    if supabase:
+        try:
+            result = supabase.table('behavior_tracking').select('*').eq('user_id', user_id).order('timestamp', desc=True).limit(25).execute()
+            trends = getattr(result, 'data', None) or []
+        except Exception:
+            logger.exception('Error reading behavior tracking')
+    return {
+        'financial_profile': fp,
+        'behavior_trends': trends
+    }
 
 
 @app.post('/ai/scenario')

@@ -4,7 +4,10 @@ export default function ScenarioScreen({ scenario, onSubmit, loading }) {
   if (!scenario) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="loader"></div>
+        <div className="text-center">
+          <div className="mx-auto loader"></div>
+          <p className="mt-4 text-white/80">AI is generating your personalized scenario...</p>
+        </div>
       </div>
     );
   }

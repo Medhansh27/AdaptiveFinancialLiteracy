@@ -1,8 +1,7 @@
 import { motion } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
 
-export default function Dashboard({ profile, onStart, loading }) {
-  const progress = (profile.xp % 500) / 5;
+export default function Dashboard({ profile, onStart, loading, financialProfile, behaviorTrends = [] }) {
   return (
     <GlassCard className="p-8">
       <h1 className="text-4xl font-bold">FinSim</h1>
@@ -27,6 +26,24 @@ export default function Dashboard({ profile, onStart, loading }) {
       <button onClick={onStart} disabled={loading} className="mt-8 rounded-xl bg-indigo-500 px-6 py-3 font-semibold hover:bg-indigo-400">
         {loading ? 'Loading…' : 'Start Simulation'}
       </button>
+      {financialProfile?.personality_type && (
+        <div className="mt-8 rounded-xl border border-cyan-300/30 bg-cyan-500/10 p-4">
+          <p className="text-sm uppercase tracking-wide text-cyan-100">Financial Personality</p>
+          <p className="mt-2 text-xl font-semibold">{financialProfile.personality_type}</p>
+          <p className="mt-1 text-white/80">Strengths: {(financialProfile.strengths || []).join(', ') || 'N/A'}</p>
+          <p className="mt-1 text-white/80">Weak Areas: {(financialProfile.weak_areas || []).join(', ') || 'N/A'}</p>
+          <p className="mt-1 text-white/80">Scores - Risk: {financialProfile.risk_score ?? 0}, Discipline: {financialProfile.discipline_score ?? 0}, Panic: {financialProfile.panic_score ?? 0}</p>
+        </div>
+      )}
+      <div className="mt-6 rounded-xl border border-white/20 bg-white/5 p-4">
+        <p className="text-sm uppercase tracking-wide text-indigo-200">Behavioral Trends</p>
+        {(behaviorTrends || []).slice(0, 3).map((trend) => (
+          <p key={`${trend.timestamp}-${trend.behavior_type}`} className="mt-2 text-sm text-white/80">
+            {trend.behavior_type}: severity {trend.severity} ({trend.category})
+          </p>
+        ))}
+        {!behaviorTrends?.length && <p className="mt-2 text-sm text-white/60">No trend data yet. Complete scenarios to unlock adaptive insights.</p>}
+      </div>
     </GlassCard>
   );
 }

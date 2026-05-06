@@ -26,6 +26,11 @@ export default function ResultScreen({ result, onNext, loading }) {
         <p className="text-sm uppercase tracking-wide text-indigo-200">AI Insight</p>
         <p className="mt-2 text-white/90">{result.insight}</p>
       </div>
+      <div className="mt-4 rounded-xl border border-fuchsia-300/30 bg-fuchsia-500/10 p-4">
+        <p className="text-sm uppercase tracking-wide text-fuchsia-200">Coaching Timeline</p>
+        <p className="mt-2 text-white/90">Behavior Signal: {result.behavior_signal || (result.correct ? 'improving' : 'needs_attention')}</p>
+        <p className="mt-1 text-white/80">Adaptive Summary: {result.correct ? 'Keep compounding disciplined actions.' : 'Recover with one concrete action before the next scenario.'}</p>
+      </div>
       {result.weak_topic && (
         <div className="mt-4 rounded-xl border border-indigo-300/40 bg-indigo-500/10 p-4">
           <p className="text-sm uppercase tracking-wide text-indigo-200">🎯 Adaptive System Update</p>
